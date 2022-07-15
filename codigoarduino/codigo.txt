@@ -1,0 +1,118 @@
+//#include <SPI.h>
+#include <WiFiEsp.h>
+#include <MySQL_Connection.h>
+#include <MySQL_Cursor.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+//#include <WiFi.h>
+
+#ifndef HAVE_HWSERIAL1
+#include "SoftwareSerial.h"
+SoftwareSerial Serial1(2, 3); // RX, TX
+#endif
+
+byte mac_addr[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+
+IPAddress server_addr(192, 168, 18, 128); // IP of the MySQL server here
+char user[] = "arduino";              // MySQL user login username
+char password[] = "1234";        // MySQL user login password
+
+char ssid[] = "TP-Link_ACE2";    // your SSID
+char pass[] = "90033452";       // your SSID Password
+
+// Sample query
+char INSERT_SQL[] = "INSERT INTO arduino.hello_sensor (message, sensor_num, value) VALUES ('%s',%d,%s)";
+char query[128];
+char temperature[10];
+float temp;
+float tempc;
+const byte pinDatosDQ = 9;
+
+    
+WiFiEspClient client;
+MySQL_Connection conn((Client *)&client);
+MySQL_Cursor cur = MySQL_Cursor(&conn);
+
+OneWire oneWireObjeto (pinDatosDQ);
+DallasTemperature sensorDS18B20(&oneWireObjeto);
+
+void setup() {
+  
+  Serial.begin(9600);
+  sensorDS18B20.begin();
+  
+  while (!Serial); // wait for serial port to connect
+   // Serial.println("Conectando...");
+    Serial1.begin(9600);
+    WiFi.init(&Serial1);
+    WiFi.begin(ssid, pass);
+    Serial.println("Conectando...");
+
+    int status = WiFi.begin(ssid, pass);
+    if (status != WL_CONNECTED){
+      Serial.println("Conección fallida!!");
+      while(true);
+      }
+      else{
+        Serial.println("Conectado a la red");
+        IPAddress ip = WiFi.localIP();
+        Serial.print("IP: ");
+        Serial.println(ip);
+        }
+      Serial.println("Conectando a MySQL...");
+      //delay(15000);
+   if (conn.connect(server_addr, 3306, user, password)) { 
+    delay(100000); 
+      Serial.println("ok");
+     
+  /*
+      // Initiate the query class instance
+      MySQL_Cursor *cur_mem = new MySQL_Cursor(&conn);
+      // Save
+      dtostrf(50.125, 1, 2, temperature);
+      sprintf(query, INSERT_SQL, "test sensor", 24, temperature);
+      // Execute the query
+      cur_mem->execute(query);
+      // Note: since there are no results, we do not need to read any data
+      // Deleting the cursor also frees up memory used
+      delete cur_mem;
+      Serial.println("Data recorded.");*/
+      }
+      else
+        Serial.println("Conección fallida!!!!!!!!!");
+    //  conn.close();
+  }
+
+
+void loop() {
+
+  
+  sensorDS18B20.requestTemperatures();
+  tempc = sensorDS18B20.getTempCByIndex(0);
+  //Serial.println( sensorDS18B20.getTempCByIndex(0));
+  Serial.print(tempc);
+  Serial.println();
+  delay(5000);
+      // Initiate the query class instance
+ if (conn.connect(server_addr, 3306, user, password)) { 
+    MySQL_Cursor *cur_mem = new MySQL_Cursor(&conn);
+    // Save
+    dtostrf(tempc, 1, 1, temperature);
+    sprintf(query, INSERT_SQL, "test sensor", 24, temperature);
+    // Execute the query
+    cur_mem->execute(query);
+    // Note: since there are no results, we do not need to read any data
+    // Deleting the cursor also frees up memory used
+    delete cur_mem;
+    }else
+        Serial.println("Conección fallida!!!!!!!!!");
+        conn.close();
+       /*if (conn.connect(server_addr, 3306, user, password)) { 
+    delay(10000); 
+      Serial.println("ok");
+     
+      }
+      else
+        Serial.println("Conección fallida!!!!!!!!!");
+         delay(10000); */
+}
